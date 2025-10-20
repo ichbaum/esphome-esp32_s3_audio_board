@@ -1,11 +1,11 @@
 esphome:
   name: esp32-s3-audio-board-voice
   friendly_name: ESP32-S3-Audio-Board Voice
-  on_boot:
-    priority: 375
-    then:
-      - delay: 10s
-      - switch.turn_on: pa_enable      
+#  on_boot:
+#    priority: 375
+#    then:
+#      - delay: 10s
+#      - switch.turn_on: pa_enable      
       
 esp32:
   board: esp32-s3-devkitc-1
@@ -177,6 +177,7 @@ voice_assistant:
         green: 0%
         effect: "Fast Pulse"
   on_tts_start:
+    - switch.turn_on: pa_enable 
     - light.turn_on:
         id: led
         blue: 100%
@@ -200,6 +201,7 @@ voice_assistant:
           - lambda: id(va).set_use_wake_word(false);
           - micro_wake_word.start:
     - script.execute: reset_led
+    - switch.turn_on: pa_enable 
   on_error:
     - light.turn_on:
         id: led
