@@ -140,6 +140,7 @@ media_player:
             - microphone.is_capturing:
           then:
             - script.execute: stop_wake_word
+      - switch.turn_on: pa_enable       
       - light.turn_on:
           id: led
           blue: 100%
@@ -201,7 +202,7 @@ voice_assistant:
           - lambda: id(va).set_use_wake_word(false);
           - micro_wake_word.start:
     - script.execute: reset_led
-    - switch.turn_on: pa_enable 
+    - switch.turn_off: pa_enable 
   on_error:
     - light.turn_on:
         id: led
