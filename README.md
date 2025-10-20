@@ -7,6 +7,5 @@ Still a basic esphome configuration.
 Many issues included. ;-)
 
 Issues:
-  Audio Power Amplifier is always on.
   Audio Power Amplifier crack sound on activation.
   buttons dont work. Not yet implamented.
