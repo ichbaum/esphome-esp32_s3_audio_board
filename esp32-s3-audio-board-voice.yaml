@@ -5,8 +5,7 @@ esphome:
     priority: 375
     then:
       - delay: 1s
-      - switch.turn_on: pa_enable
-      
+      - switch.turn_on: pa_enable      
 esp32:
   board: esp32-s3-devkitc-1
   cpu_frequency: 240MHz
