@@ -15,6 +15,14 @@ esp32:
   framework:
     type: esp-idf
     version: recommended
+    sdkconfig_options:
+      # Setzt die Flash-Chip-Größe im SDK (MUSS 16MB sein)
+      CONFIG_ESPTOOLPY_FLASHSIZE: "16MB"
+      # Setzt den Betriebsmodus des Flash-Speichers
+      # 'dio' oder 'qio' sind üblich. 'qio' ist schneller. Probiere beides.
+      CONFIG_ESPTOOLPY_FLASHMODE: "qio"
+      # Setzt die Flash-Frequenz. 80MHz ist Standard für 16MB S3-Chips.
+      CONFIG_ESPTOOLPY_FLASHFREQ: "80m"    
 
 psram:
   mode: octal
