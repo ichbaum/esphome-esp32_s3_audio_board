@@ -23,17 +23,11 @@ logger:
     #level: WARN
 
 api:
-  encryption:
-    key: "Mdi6czWy+lKqz7k6OZ9CK37gOsbWW6YZDrYX1qjZyk4="
 
 ota:
-  platform: esphome
-  password: "5141bdd7e8e960df23ef54de6c87b006"
-
-wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-
+  - platform: esphome
+    id: ota_esphome  
+    
 captive_portal:  
 
 # ====== I2C für ES7210 / ES8311 /TCA9555 ======
