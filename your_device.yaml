@@ -1,5 +1,5 @@
 substitutions:
-  name: esp32-s3-audio-board-voice-12345
+  name: esp32-s3-audio-board-voice
   friendly_name: ESP32-S3-Audio-Board Voice
 packages:
   ESP32-S3-Audio-Board Voice: github://ichbaum/esphome-esp32_s3_audio_board/esp32-s3-audio-board-voice.yaml                                
