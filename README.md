@@ -8,4 +8,4 @@ Many issues included. ;-)
 
 Issues:
   Audio Power Amplifier crack sound on activation.
-  buttons dont work. Not yet implamented.
+  buttons dont work. Not yet implemented.
