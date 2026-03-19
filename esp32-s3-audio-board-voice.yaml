@@ -98,7 +98,7 @@ speaker:
     sample_rate: 48000
     bits_per_sample: 16bit
     channel: stereo
-    timeout: never
+    timeout: 500ms
     buffer_duration: 500ms
     
 
@@ -148,8 +148,8 @@ media_player:
             - microphone.is_capturing:
           then:
             - script.execute: stop_wake_word
-      - switch.turn_on: pa_enable       
-      - delay: 500ms 
+      - delay: 200ms 
+      - switch.turn_on: pa_enable             
       - light.turn_on:
           id: led
           blue: 100%
