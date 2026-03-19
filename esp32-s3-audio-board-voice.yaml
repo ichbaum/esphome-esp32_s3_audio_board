@@ -149,6 +149,7 @@ media_player:
           then:
             - script.execute: stop_wake_word
       - switch.turn_on: pa_enable       
+      - delay: 150ms 
       - light.turn_on:
           id: led
           blue: 100%
@@ -187,6 +188,7 @@ voice_assistant:
         effect: "Fast Pulse"
   on_tts_start:
     - switch.turn_on: pa_enable 
+    - delay: 150ms 
     - light.turn_on:
         id: led
         blue: 100%
