@@ -99,7 +99,7 @@ speaker:
     bits_per_sample: 16bit
     channel: stereo
     timeout: never
-    buffer_duration: 100ms
+    buffer_duration: 500ms
     
 
 # ====== RGB LED (onboard WS2812, 7 LEDs) ======
@@ -149,7 +149,7 @@ media_player:
           then:
             - script.execute: stop_wake_word
       - switch.turn_on: pa_enable       
-      - delay: 150ms 
+      - delay: 500ms 
       - light.turn_on:
           id: led
           blue: 100%
@@ -188,7 +188,6 @@ voice_assistant:
         effect: "Fast Pulse"
   on_tts_start:
     - switch.turn_on: pa_enable 
-    - delay: 150ms 
     - light.turn_on:
         id: led
         blue: 100%
