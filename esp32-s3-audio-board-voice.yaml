@@ -50,23 +50,12 @@ tca9555:
   - id: tca9555_hub
     i2c_id: i2c_bus
     address: 0x20
-    
-    spi:
-  id: spi_bus
-  clk_pin: GPIO4
-  mosi_pin: GPIO9
-  miso_pin: GPIO8
 
 # ====== I2S Audio-Bus ======
 i2s_audio:
-  - id: i2s_output
-    i2s_lrclk_pin:
-      number: GPIO14
-      allow_other_uses: true
-    i2s_bclk_pin:
-      number: GPIO13
-      allow_other_uses: true
-    i2s_mclk_pin: GPIO12
+  - id: i2s_audio_bus
+    i2s_lrclk_pin: GPIO14
+    i2s_bclk_pin: GPIO13
     i2s_mclk_pin: GPIO12
 
 # ====== Mikrofon (ES7210) ======
@@ -83,85 +72,38 @@ audio_dac:
     id: es8311_dac
     i2c_id: i2c_bus
     bits_per_sample: 16bit
-    sample_rate: 16000
-    use_mclk: true
-    force_master: true
-    mclk_multiple: 256
+    sample_rate: 48000    
 
 # ====== Mikrofon über I2S ======
 microphone:
   - platform: i2s_audio
     id: echo_microphone
-    i2s_audio_id: i2s_input
+    i2s_audio_id: i2s_audio_bus
     i2s_din_pin: GPIO15
     bits_per_sample: 16bit
     sample_rate: 16000
     adc_type: external
-    i2s_mode: secondary
-    use_apll: true
-    mclk_multiple: 256
+    #i2s_mode: secondary
+    #pdm: false
+    #channel: stereo
 
 # ====== Lautsprecher über I2S ======
 speaker:
   - platform: i2s_audio
     id: i2s_audio_speaker
-    i2s_audio_id: i2s_output
+    i2s_audio_id: i2s_audio_bus
     i2s_dout_pin: GPIO16
     dac_type: external
     audio_dac: es8311_dac
-    sample_rate: 16000
+    sample_rate: 48000
     bits_per_sample: 16bit
     channel: stereo
-    timeout: never
-    buffer_duration: 100ms
-    i2s_mode: secondary
-    use_apll: true
-    mclk_multiple: 256
-     
-# ====== Display ST7789 (240x320) ======
-display:
-  - platform: ili9xxx
-    model: ST7789V
-    id: my_display
-    spi_id: spi_bus
-    cs_pin: GPIO3
-    dc_pin: GPIO7
-    reset_pin: GPIO6   # kein physischer RST → TCA9555 Extend_IO6 laut Schaltplan LCD_RST
-    dimensions:
-      width: 240
-      height: 320
-    transform:
-      swap_xy: false
-      mirror_x: false
-      mirror_y: false
-    auto_clear_enabled: false
-    update_interval: never
-    lambda: |-
-      it.fill(Color(0, 0, 0));
-      auto time = id(sntp_time).now();
-      if (time.is_valid()) {
-        it.printf(120, 50, id(font_clock), TextAlign::CENTER,
-                  "%02d:%02d", time.hour, time.minute);
-      }
-      it.printf(120, 180, id(font_status), TextAlign::CENTER,
-                "%s", id(display_text).c_str());
-
-# ====== Display Backlight ======
-output:
-  - platform: ledc
-    id: backlight_pwm
-    pin: GPIO5
+    timeout: 500ms
+    buffer_duration: 500ms
+    
 
 # ====== RGB LED (onboard WS2812, 7 LEDs) ======
 light:
-  # Backlight
-  - platform: monochromatic
-    id: backlight
-    name: "Display Backlight"
-    output: backlight_pwm
-    default_transition_length: 300ms
-    restore_mode: ALWAYS_ON
-  # RGB LED Ring
   - platform: esp32_rmt_led_strip
     id: led
     name: None
@@ -186,46 +128,6 @@ light:
           min_brightness: 50%
           max_brightness: 100%
 
-# ====== Fonts ======
-font:
-  - file: "gfonts://Roboto"
-    id: font_clock
-    size: 72
-    glyphs: "0123456789:"
-  - file: "gfonts://Roboto"
-    id: font_status
-    size: 26
-    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789äöüÄÖÜß .,!?:-"
-
-# ====== NTP Zeit ======
-time:
-  - platform: sntp
-    id: sntp_time
-    timezone: "Europe/Berlin"
-    on_time:
-      - seconds: 0
-        minutes: /1
-        then:
-          - if:
-              condition:
-                lambda: return id(display_text) == "Bereit";
-              then:
-                - component.update: my_display
-
-# ====== Globale Variable für Display-Text ======
-globals:
-  - id: display_text
-    type: std::string
-    restore_value: no
-    initial_value: '"Bereit"'
-
-# ====== Touch (CST816) ======
-touchscreen:
-  - platform: cst816
-    id: my_touch
-    i2c_id: i2c_bus
-    address: 0x15
-    # INT und RST sind laut Demo -1 (nicht angeschlossen / via TCA9555)
 # ====== Media Player ======
 media_player:
   - platform: speaker
@@ -246,6 +148,7 @@ media_player:
             - microphone.is_capturing:
           then:
             - script.execute: stop_wake_word
+      - delay: 200ms 
       - switch.turn_on: pa_enable             
       - light.turn_on:
           id: led
@@ -271,10 +174,6 @@ voice_assistant:
   auto_gain: 31dBFS
   on_listening:
     - switch.turn_on: pa_enable
-    - globals.set:
-        id: display_text
-        value: '"Ich höre..."'
-    - component.update: my_display
     - light.turn_on:
         id: led
         blue: 100%
@@ -282,10 +181,6 @@ voice_assistant:
         green: 0%
         effect: "Slow Pulse"
   on_stt_vad_end:
-    - globals.set:
-        id: display_text
-        value: '"Denke nach..."'
-    - component.update: my_display
     - light.turn_on:
         id: led
         blue: 100%
@@ -294,10 +189,6 @@ voice_assistant:
         effect: "Fast Pulse"
   on_tts_start:
     - switch.turn_on: pa_enable 
-    - globals.set:
-        id: display_text
-        value: '"Antwort..."'
-    - component.update: my_display
     - light.turn_on:
         id: led
         blue: 100%
@@ -321,17 +212,8 @@ voice_assistant:
           - lambda: id(va).set_use_wake_word(false);
           - micro_wake_word.start:
     - script.execute: reset_led
-    - globals.set:
-        id: display_text
-        value: '"Bereit"'
-    - component.update: my_display
-    - delay: 500ms
-    - switch.turn_off: pa_enable
+    - switch.turn_off: pa_enable 
   on_error:
-    - globals.set:
-        id: display_text
-        value: '"Fehler"'
-    - component.update: my_display
     - light.turn_on:
         id: led
         red: 100%
@@ -341,10 +223,6 @@ voice_assistant:
         effect: none
     - delay: 2s
     - script.execute: reset_led
-    - globals.set:
-        id: display_text
-        value: '"Bereit"'
-    - component.update: my_display
   on_client_connected:
     - delay: 2s
     - script.execute: start_wake_word
@@ -356,10 +234,6 @@ voice_assistant:
         not:
           microphone.is_capturing:
     - switch.turn_on: timer_ringing
-    - globals.set:
-        id: display_text
-        value: '"Timer fertig!"'
-    - component.update: my_display
     - light.turn_on:
         id: led
         red: 0%
