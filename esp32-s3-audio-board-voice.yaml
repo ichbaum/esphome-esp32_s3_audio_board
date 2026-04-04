@@ -29,7 +29,7 @@ ota:
 
 captive_portal:
 
-# ====== Externe ES8311 Komponente (force_master support) ======
+# ====== Externe ES8311 Komponente ======
 external_components:
   - source:
       type: git
@@ -38,11 +38,12 @@ external_components:
     components: [ es8311 ]
     refresh: 0s
 
-# ====== I2C für ES7210 / ES8311 / TCA9555 ======
+# ====== I2C (TCA9555 + Touch CST816 teilen Bus) ======
 i2c:
   id: i2c_bus
   scl: GPIO10
   sda: GPIO11
+  frequency: 400kHz
 
 # ====== GPIO Expander ======
 tca9555:
@@ -50,7 +51,14 @@ tca9555:
     i2c_id: i2c_bus
     address: 0x20
 
-# ====== I2S Audio-Busse (getrennt für Speaker und Mikrofon) ======
+# ====== SPI Bus für Display (aus offiziellem Demo) ======
+spi:
+  id: spi_bus
+  clk_pin: GPIO4
+  mosi_pin: GPIO9
+  miso_pin: GPIO8
+
+# ====== I2S Busse (getrennt für Speaker und Mikrofon) ======
 i2s_audio:
   - id: i2s_output
     i2s_lrclk_pin:
@@ -69,7 +77,7 @@ i2s_audio:
       number: GPIO13
       allow_other_uses: true
 
-# ====== Mikrofon (ES7210) ======
+# ====== Mikrofon ADC (ES7210) ======
 audio_adc:
   - platform: es7210
     id: es7210_adc
@@ -77,7 +85,7 @@ audio_adc:
     bits_per_sample: 16bit
     sample_rate: 16000
 
-# ====== Lautsprecher (ES8311) – mit force_master und use_mclk ======
+# ====== Lautsprecher DAC (ES8311) ======
 audio_dac:
   - platform: es8311
     id: es8311_dac
@@ -88,7 +96,7 @@ audio_dac:
     force_master: true
     mclk_multiple: 256
 
-# ====== Mikrofon über I2S ======
+# ====== Mikrofon ======
 microphone:
   - platform: i2s_audio
     id: echo_microphone
@@ -101,7 +109,7 @@ microphone:
     use_apll: true
     mclk_multiple: 256
 
-# ====== Lautsprecher über I2S ======
+# ====== Lautsprecher ======
 speaker:
   - platform: i2s_audio
     id: i2s_audio_speaker
@@ -118,8 +126,50 @@ speaker:
     use_apll: true
     mclk_multiple: 256
 
-# ====== RGB LED (onboard WS2812, 7 LEDs) ======
+# ====== Display ST7789 (240x320) ======
+display:
+  - platform: ili9xxx
+    model: ST7789V
+    id: my_display
+    spi_id: spi_bus
+    cs_pin: GPIO3
+    dc_pin: GPIO7
+    reset_pin: GPIO6   # kein physischer RST → TCA9555 Extend_IO6 laut Schaltplan LCD_RST
+    dimensions:
+      width: 240
+      height: 320
+    transform:
+      swap_xy: false
+      mirror_x: false
+      mirror_y: false
+    auto_clear_enabled: false
+    update_interval: never
+    lambda: |-
+      it.fill(Color(0, 0, 0));
+      auto time = id(sntp_time).now();
+      if (time.is_valid()) {
+        it.printf(120, 50, id(font_clock), TextAlign::CENTER,
+                  "%02d:%02d", time.hour, time.minute);
+      }
+      it.printf(120, 180, id(font_status), TextAlign::CENTER,
+                "%s", id(display_text).c_str());
+
+# ====== Display Backlight ======
+output:
+  - platform: ledc
+    id: backlight_pwm
+    pin: GPIO5
+
 light:
+  # Backlight
+  - platform: monochromatic
+    id: backlight
+    name: "Display Backlight"
+    output: backlight_pwm
+    default_transition_length: 300ms
+    restore_mode: ALWAYS_ON
+
+  # RGB LED Ring
   - platform: esp32_rmt_led_strip
     id: led
     name: None
@@ -143,6 +193,47 @@ light:
           update_interval: 100ms
           min_brightness: 50%
           max_brightness: 100%
+
+# ====== Fonts ======
+font:
+  - file: "gfonts://Roboto"
+    id: font_clock
+    size: 72
+    glyphs: "0123456789:"
+  - file: "gfonts://Roboto"
+    id: font_status
+    size: 26
+    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789äöüÄÖÜß .,!?:-"
+
+# ====== NTP Zeit ======
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: "Europe/Berlin"
+    on_time:
+      - seconds: 0
+        minutes: /1
+        then:
+          - if:
+              condition:
+                lambda: return id(display_text) == "Bereit";
+              then:
+                - component.update: my_display
+
+# ====== Globale Variable für Display-Text ======
+globals:
+  - id: display_text
+    type: std::string
+    restore_value: no
+    initial_value: '"Bereit"'
+
+# ====== Touch (CST816) ======
+touchscreen:
+  - platform: cst816
+    id: my_touch
+    i2c_id: i2c_bus
+    address: 0x15
+    # INT und RST sind laut Demo -1 (nicht angeschlossen / via TCA9555)
 
 # ====== Media Player ======
 media_player:
@@ -189,6 +280,10 @@ voice_assistant:
   auto_gain: 31dBFS
   on_listening:
     - switch.turn_on: pa_enable
+    - globals.set:
+        id: display_text
+        value: '"Ich höre..."'
+    - component.update: my_display
     - light.turn_on:
         id: led
         blue: 100%
@@ -196,6 +291,10 @@ voice_assistant:
         green: 0%
         effect: "Slow Pulse"
   on_stt_vad_end:
+    - globals.set:
+        id: display_text
+        value: '"Denke nach..."'
+    - component.update: my_display
     - light.turn_on:
         id: led
         blue: 100%
@@ -204,6 +303,10 @@ voice_assistant:
         effect: "Fast Pulse"
   on_tts_start:
     - switch.turn_on: pa_enable
+    - globals.set:
+        id: display_text
+        value: '"Antwort..."'
+    - component.update: my_display
     - light.turn_on:
         id: led
         blue: 100%
@@ -227,9 +330,17 @@ voice_assistant:
           - lambda: id(va).set_use_wake_word(false);
           - micro_wake_word.start:
     - script.execute: reset_led
+    - globals.set:
+        id: display_text
+        value: '"Bereit"'
+    - component.update: my_display
     - delay: 500ms
     - switch.turn_off: pa_enable
   on_error:
+    - globals.set:
+        id: display_text
+        value: '"Fehler"'
+    - component.update: my_display
     - light.turn_on:
         id: led
         red: 100%
@@ -239,6 +350,10 @@ voice_assistant:
         effect: none
     - delay: 2s
     - script.execute: reset_led
+    - globals.set:
+        id: display_text
+        value: '"Bereit"'
+    - component.update: my_display
   on_client_connected:
     - delay: 2s
     - script.execute: start_wake_word
@@ -250,6 +365,10 @@ voice_assistant:
         not:
           microphone.is_capturing:
     - switch.turn_on: timer_ringing
+    - globals.set:
+        id: display_text
+        value: '"Timer fertig!"'
+    - component.update: my_display
     - light.turn_on:
         id: led
         red: 0%
@@ -262,7 +381,7 @@ voice_assistant:
     - light.turn_off: led
     - switch.turn_off: timer_ringing
 
-# ====== Taste (GPIO39) ======
+# ====== Taste ======
 binary_sensor:
   - platform: gpio
     pin:
@@ -401,7 +520,7 @@ switch:
       - delay: 15min
       - switch.turn_off: timer_ringing
 
-# ====== Auswahl: Wake Word Engine ======
+# ====== Wake Word Engine Auswahl ======
 select:
   - platform: template
     entity_category: config
