@@ -62,7 +62,10 @@ audio_dac:
     id: es8311_dac
     i2c_id: i2c_bus
     bits_per_sample: 16bit
-    sample_rate: 48000
+    sample_rate: 16000
+    use_mclk: true
+    force_master: true
+    mclk_multiple: 256
 
 microphone:
   - platform: i2s_audio
