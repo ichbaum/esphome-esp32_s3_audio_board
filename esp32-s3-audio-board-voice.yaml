@@ -1,7 +1,12 @@
 esphome:
   name: esp32-s3-audio-board-voice
   friendly_name: ESP32-S3-Audio-Board Voice
-
+#  on_boot:
+#    priority: 375
+#    then:
+#      - delay: 10s
+#      - switch.turn_on: pa_enable      
+      
 esp32:
   board: esp32-s3-devkitc-1
   cpu_frequency: 240MHz
@@ -11,54 +16,48 @@ esp32:
     type: esp-idf
     version: recommended
     sdkconfig_options:
+      # Setzt die Flash-Chip-Größe im SDK (MUSS 16MB sein)
       CONFIG_ESPTOOLPY_FLASHSIZE: "16MB"
+      # Setzt den Betriebsmodus des Flash-Speichers
+      # 'dio' oder 'qio' sind üblich. 'qio' ist schneller. Probiere beides.
       CONFIG_ESPTOOLPY_FLASHMODE: "qio"
-      CONFIG_ESPTOOLPY_FLASHFREQ: "80m"
+      # Setzt die Flash-Frequenz. 80MHz ist Standard für 16MB S3-Chips.
+      CONFIG_ESPTOOLPY_FLASHFREQ: "80m"    
 
 psram:
   mode: octal
-  speed: 80MHz
+  speed: 80MHz    
 
 logger:
+    #level: WARN
 
 api:
 
 ota:
   - platform: esphome
-    id: ota_esphome
+    id: ota_esphome  
+    
+captive_portal:  
 
-captive_portal:
-
-# ====== Externe ES8311 Komponente ======
-external_components:
-  - source:
-      type: git
-      url: "https://github.com/sw3Dan/waveshare-s2-audio_esphome_voice"
-      ref: main
-    components: [ es8311 ]
-    refresh: 0s
-
-# ====== I2C (TCA9555 + Touch CST816 teilen Bus) ======
+# ====== I2C für ES7210 / ES8311 /TCA9555 ======
 i2c:
   id: i2c_bus
   scl: GPIO10
   sda: GPIO11
-  frequency: 400kHz
-
-# ====== GPIO Expander ======
+  
+# ====== I2S GPIO Expander ======  
 tca9555:
   - id: tca9555_hub
     i2c_id: i2c_bus
     address: 0x20
-
-# ====== SPI Bus für Display (aus offiziellem Demo) ======
-spi:
+    
+    spi:
   id: spi_bus
   clk_pin: GPIO4
   mosi_pin: GPIO9
   miso_pin: GPIO8
 
-# ====== I2S Busse (getrennt für Speaker und Mikrofon) ======
+# ====== I2S Audio-Bus ======
 i2s_audio:
   - id: i2s_output
     i2s_lrclk_pin:
@@ -68,16 +67,9 @@ i2s_audio:
       number: GPIO13
       allow_other_uses: true
     i2s_mclk_pin: GPIO12
+    i2s_mclk_pin: GPIO12
 
-  - id: i2s_input
-    i2s_lrclk_pin:
-      number: GPIO14
-      allow_other_uses: true
-    i2s_bclk_pin:
-      number: GPIO13
-      allow_other_uses: true
-
-# ====== Mikrofon ADC (ES7210) ======
+# ====== Mikrofon (ES7210) ======
 audio_adc:
   - platform: es7210
     id: es7210_adc
@@ -85,7 +77,7 @@ audio_adc:
     bits_per_sample: 16bit
     sample_rate: 16000
 
-# ====== Lautsprecher DAC (ES8311) ======
+# ====== Lautsprecher (ES8311) ======
 audio_dac:
   - platform: es8311
     id: es8311_dac
@@ -96,7 +88,7 @@ audio_dac:
     force_master: true
     mclk_multiple: 256
 
-# ====== Mikrofon ======
+# ====== Mikrofon über I2S ======
 microphone:
   - platform: i2s_audio
     id: echo_microphone
@@ -109,7 +101,7 @@ microphone:
     use_apll: true
     mclk_multiple: 256
 
-# ====== Lautsprecher ======
+# ====== Lautsprecher über I2S ======
 speaker:
   - platform: i2s_audio
     id: i2s_audio_speaker
@@ -125,7 +117,7 @@ speaker:
     i2s_mode: secondary
     use_apll: true
     mclk_multiple: 256
-
+     
 # ====== Display ST7789 (240x320) ======
 display:
   - platform: ili9xxx
@@ -160,6 +152,7 @@ output:
     id: backlight_pwm
     pin: GPIO5
 
+# ====== RGB LED (onboard WS2812, 7 LEDs) ======
 light:
   # Backlight
   - platform: monochromatic
@@ -168,7 +161,6 @@ light:
     output: backlight_pwm
     default_transition_length: 300ms
     restore_mode: ALWAYS_ON
-
   # RGB LED Ring
   - platform: esp32_rmt_led_strip
     id: led
@@ -234,7 +226,6 @@ touchscreen:
     i2c_id: i2c_bus
     address: 0x15
     # INT und RST sind laut Demo -1 (nicht angeschlossen / via TCA9555)
-
 # ====== Media Player ======
 media_player:
   - platform: speaker
@@ -245,7 +236,7 @@ media_player:
     volume_max: 0.85
     announcement_pipeline:
       speaker: i2s_audio_speaker
-      format: WAV
+      format: WAV         
     files:
       - id: timer_finished_wave_file
         file: https://github.com/esphome/wake-word-voice-assistants/raw/main/sounds/timer_finished.wav
@@ -255,7 +246,7 @@ media_player:
             - microphone.is_capturing:
           then:
             - script.execute: stop_wake_word
-      - switch.turn_on: pa_enable
+      - switch.turn_on: pa_enable             
       - light.turn_on:
           id: led
           blue: 100%
@@ -302,7 +293,7 @@ voice_assistant:
         green: 0%
         effect: "Fast Pulse"
   on_tts_start:
-    - switch.turn_on: pa_enable
+    - switch.turn_on: pa_enable 
     - globals.set:
         id: display_text
         value: '"Antwort..."'
@@ -381,7 +372,7 @@ voice_assistant:
     - light.turn_off: led
     - switch.turn_off: timer_ringing
 
-# ====== Taste ======
+# ====== Taste (GPIO39) ======
 binary_sensor:
   - platform: gpio
     pin:
@@ -472,14 +463,21 @@ script:
             - micro_wake_word.stop:
 
 # ====== Schalter ======
-switch:
+switch:   
+#  - platform: gpio
+#    name: "PA_CTRL(?)"
+#    id: pa_ctrl
+#    pin:
+#        tca9555: tca9555_hub
+#        number: 9
   - platform: gpio
-    id: pa_enable
+    id: pa_enable    
     name: "Audio Power Amplifier"
     restore_mode: ALWAYS_OFF
+    #internal: true
     pin:
-      tca9555: tca9555_hub
-      number: 8
+        tca9555: tca9555_hub
+        number: 8 
 
   - platform: template
     name: Use listen light
@@ -498,29 +496,29 @@ switch:
     restore_mode: ALWAYS_OFF
     on_turn_off:
       - lambda: |-
-          id(echo_media_player)
-            ->make_call()
-            .set_command(media_player::MediaPlayerCommand::MEDIA_PLAYER_COMMAND_REPEAT_OFF)
-            .set_announcement(true)
-            .perform();
-          id(echo_media_player)->set_playlist_delay_ms(speaker::AudioPipelineType::ANNOUNCEMENT, 0);
+              id(echo_media_player)
+                ->make_call()
+                .set_command(media_player::MediaPlayerCommand::MEDIA_PLAYER_COMMAND_REPEAT_OFF)
+                .set_announcement(true)
+                .perform();
+              id(echo_media_player)->set_playlist_delay_ms(speaker::AudioPipelineType::ANNOUNCEMENT, 0);
       - media_player.stop:
           announcement: true
     on_turn_on:
       - lambda: |-
-          id(echo_media_player)
-            ->make_call()
-            .set_command(media_player::MediaPlayerCommand::MEDIA_PLAYER_COMMAND_REPEAT_ONE)
-            .set_announcement(true)
-            .perform();
-          id(echo_media_player)->set_playlist_delay_ms(speaker::AudioPipelineType::ANNOUNCEMENT, 1000);
+            id(echo_media_player)
+              ->make_call()
+              .set_command(media_player::MediaPlayerCommand::MEDIA_PLAYER_COMMAND_REPEAT_ONE)
+              .set_announcement(true)
+              .perform();
+            id(echo_media_player)->set_playlist_delay_ms(speaker::AudioPipelineType::ANNOUNCEMENT, 1000);
       - media_player.speaker.play_on_device_media_file:
           media_file: timer_finished_wave_file
           announcement: true
       - delay: 15min
       - switch.turn_off: timer_ringing
 
-# ====== Wake Word Engine Auswahl ======
+# ====== Auswahl: Wake Word Engine ======
 select:
   - platform: template
     entity_category: config
@@ -553,6 +551,7 @@ select:
 # ====== Wake Word ======
 micro_wake_word:
   on_wake_word_detected:
+    - switch.turn_on: pa_enable
     - voice_assistant.start:
         wake_word: !lambda return wake_word;
   vad:
