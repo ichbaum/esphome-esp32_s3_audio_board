@@ -71,18 +71,7 @@ tca9555:
     address: 0x20
 
 i2s_audio:
-  - id: i2s_output
-    i2s_lrclk_pin:
-      number: GPIO14
-      allow_other_uses: true
-    i2s_bclk_pin:
-      number: GPIO13
-      allow_other_uses: true
-    i2s_mclk_pin:
-      number: GPIO12
-      allow_other_uses: true
-
-  - id: i2s_input
+  - id: i2s_shared
     i2s_lrclk_pin:
       number: GPIO14
       allow_other_uses: true
@@ -111,7 +100,7 @@ audio_dac:
 microphone:
   - platform: i2s_audio
     id: echo_microphone
-    i2s_audio_id: i2s_input
+    i2s_audio_id: i2s_shared
     i2s_din_pin: GPIO15
     bits_per_sample: 16bit
     sample_rate: 16000
@@ -123,7 +112,7 @@ microphone:
 speaker:
   - platform: i2s_audio
     id: i2s_audio_speaker
-    i2s_audio_id: i2s_output
+    i2s_audio_id: i2s_shared
     i2s_dout_pin: GPIO16
     dac_type: external
     audio_dac: es8311_dac
