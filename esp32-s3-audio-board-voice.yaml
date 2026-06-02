@@ -71,9 +71,13 @@ tca9555:
     address: 0x20
 
 i2s_audio:
-  - id: i2s_shared
-    i2s_lrclk_pin: GPIO14
-    i2s_bclk_pin: GPIO13
+  - id: i2s_output
+    i2s_lrclk_pin:
+      number: GPIO14
+      allow_other_uses: true
+    i2s_bclk_pin:
+      number: GPIO13
+      allow_other_uses: true
     i2s_mclk_pin: GPIO12
 
 audio_adc:
@@ -88,13 +92,13 @@ audio_dac:
     id: es8311_dac
     i2c_id: i2c_bus
     bits_per_sample: 16bit
-    sample_rate: 48000
+    sample_rate: 16000
     use_mclk: true
 
 microphone:
   - platform: i2s_audio
     id: echo_microphone
-    i2s_audio_id: i2s_shared
+    i2s_audio_id: i2s_output
     i2s_din_pin: GPIO15
     bits_per_sample: 16bit
     sample_rate: 16000
@@ -106,11 +110,11 @@ microphone:
 speaker:
   - platform: i2s_audio
     id: i2s_audio_speaker
-    i2s_audio_id: i2s_shared
+    i2s_audio_id: i2s_output
     i2s_dout_pin: GPIO16
     dac_type: external
     audio_dac: es8311_dac
-    sample_rate: 48000
+    sample_rate: 16000
     bits_per_sample: 16bit
     channel: stereo
     timeout: never
@@ -118,30 +122,6 @@ speaker:
     i2s_mode: secondary
     use_apll: true
     mclk_multiple: 256
-
-  - platform: mixer
-    id: speaker_mixer
-    output_speaker: i2s_audio_speaker
-    num_channels: 2
-    source_speakers:
-      - id: announcement_mixer_input
-        timeout: never
-      - id: media_mixer_input
-        timeout: never
-
-  - platform: resampler
-    id: announcement_resampler
-    output_speaker: announcement_mixer_input
-    sample_rate: 48000
-    bits_per_sample: 16
-    buffer_duration: 500ms
-
-  - platform: resampler
-    id: media_resampler
-    output_speaker: media_mixer_input
-    sample_rate: 48000
-    bits_per_sample: 16
-    buffer_duration: 500ms
 
 light:
   - platform: esp32_rmt_led_strip
@@ -176,13 +156,8 @@ media_player:
     volume_min: 0.4
     volume_max: 0.85
     announcement_pipeline:
-      speaker: announcement_resampler
+      speaker: i2s_audio_speaker
       format: WAV
-      num_channels: 2
-    media_pipeline:
-      speaker: media_resampler
-      format: WAV
-      num_channels: 2
     files:
       - id: timer_finished_wave_file
         file: https://github.com/esphome/wake-word-voice-assistants/raw/main/sounds/timer_finished.wav
@@ -193,6 +168,8 @@ media_player:
             - microphone.is_capturing:
           then:
             - script.execute: stop_wake_word
+      - switch.turn_on: pa_enable
+      - delay: 100ms
       - light.turn_on:
           id: led
           blue: 100%
@@ -217,6 +194,8 @@ voice_assistant:
   auto_gain: 31dBFS
 
   on_listening:
+    - switch.turn_on: pa_enable
+    - delay: 100ms
     - light.turn_on:
         id: led
         blue: 100%
@@ -233,6 +212,8 @@ voice_assistant:
         effect: "Fast Pulse"
 
   on_tts_start:
+    - switch.turn_on: pa_enable
+    - delay: 100ms
     - light.turn_on:
         id: led
         blue: 100%
@@ -251,6 +232,8 @@ voice_assistant:
           not:
             media_player.is_announcing:
         timeout: 30s
+    - delay: 200ms
+    - switch.turn_off: pa_enable
     - if:
         condition:
           - lambda: return id(wake_word_engine_location).current_option() == "On device";
@@ -389,7 +372,7 @@ switch:
   - platform: gpio
     id: pa_enable
     name: "Audio Power Amplifier"
-    restore_mode: ALWAYS_ON
+    restore_mode: ALWAYS_OFF
     pin:
       tca9555: tca9555_hub
       number: 8
@@ -464,6 +447,8 @@ select:
 
 micro_wake_word:
   on_wake_word_detected:
+    - switch.turn_on: pa_enable
+    - delay: 100ms
     - voice_assistant.start:
         wake_word: !lambda return wake_word;
 
