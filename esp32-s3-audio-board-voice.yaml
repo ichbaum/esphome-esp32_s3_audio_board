@@ -72,15 +72,9 @@ tca9555:
 
 i2s_audio:
   - id: i2s_shared
-    i2s_lrclk_pin:
-      number: GPIO14
-      allow_other_uses: true
-    i2s_bclk_pin:
-      number: GPIO13
-      allow_other_uses: true
-    i2s_mclk_pin:
-      number: GPIO12
-      allow_other_uses: true
+    i2s_lrclk_pin: GPIO14
+    i2s_bclk_pin: GPIO13
+    i2s_mclk_pin: GPIO12
 
 audio_adc:
   - platform: es7210
