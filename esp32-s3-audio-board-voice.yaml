@@ -137,7 +137,7 @@ speaker:
     mclk_multiple: 256
 
   - platform: mixer
-    id: mixer_speaker
+    id: speaker_mixer
     output_speaker: i2s_audio_speaker
     num_channels: 2
     source_speakers:
