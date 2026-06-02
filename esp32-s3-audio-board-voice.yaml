@@ -137,14 +137,14 @@ speaker:
     id: announcement_resampler
     output_speaker: announcement_mixer_input
     sample_rate: 48000
-    bits_per_sample: 16bit
+    bits_per_sample: 16
     buffer_duration: 500ms
 
   - platform: resampler
     id: media_resampler
     output_speaker: media_mixer_input
     sample_rate: 48000
-    bits_per_sample: 16bit
+    bits_per_sample: 16
     buffer_duration: 500ms
 
 light:
