@@ -109,6 +109,7 @@ microphone:
     use_apll: true
     mclk_multiple: 256
 
+# ====== Hardware-Speaker (I2S, läuft dauerhaft über Mixer) ======
 speaker:
   - platform: i2s_audio
     id: i2s_audio_speaker
@@ -124,6 +125,31 @@ speaker:
     i2s_mode: secondary
     use_apll: true
     mclk_multiple: 256
+
+  # ====== Mixer: fasst Announcement + Media zusammen ======
+  - platform: mixer
+    id: mixer_speaker
+    output_speaker: i2s_audio_speaker
+    num_channels: 2
+    source_speakers:
+      - id: announcement_mixer_input
+        timeout: never
+      - id: media_mixer_input
+        timeout: never
+
+  # ====== Resampler für Announcement-Pipeline ======
+  - platform: resampler
+    id: announcement_resampler
+    output_speaker: announcement_mixer_input
+    sample_rate: 16000
+    bits_per_sample: 16bit
+
+  # ====== Resampler für Media-Pipeline ======
+  - platform: resampler
+    id: media_resampler
+    output_speaker: media_mixer_input
+    sample_rate: 16000
+    bits_per_sample: 16bit
 
 light:
   - platform: esp32_rmt_led_strip
@@ -158,7 +184,10 @@ media_player:
     volume_min: 0.4
     volume_max: 0.85
     announcement_pipeline:
-      speaker: i2s_audio_speaker
+      speaker: announcement_resampler
+      format: WAV
+    media_pipeline:
+      speaker: media_resampler
       format: WAV
     files:
       - id: timer_finished_wave_file
@@ -170,8 +199,6 @@ media_player:
             - microphone.is_capturing:
           then:
             - script.execute: stop_wake_word
-      - switch.turn_on: pa_enable
-      - delay: 100ms
       - light.turn_on:
           id: led
           blue: 100%
@@ -196,8 +223,6 @@ voice_assistant:
   auto_gain: 31dBFS
 
   on_listening:
-    - switch.turn_on: pa_enable
-    - delay: 100ms
     - light.turn_on:
         id: led
         blue: 100%
@@ -214,8 +239,6 @@ voice_assistant:
         effect: "Fast Pulse"
 
   on_tts_start:
-    - switch.turn_on: pa_enable
-    - delay: 100ms
     - light.turn_on:
         id: led
         blue: 100%
@@ -234,8 +257,6 @@ voice_assistant:
           not:
             media_player.is_announcing:
         timeout: 30s
-    - delay: 200ms
-    - switch.turn_off: pa_enable
     - if:
         condition:
           - lambda: return id(wake_word_engine_location).current_option() == "On device";
@@ -371,10 +392,11 @@ script:
             - micro_wake_word.stop
 
 switch:
+  # PA bleibt nach Boot dauerhaft an — kein Schalten mehr nötig
   - platform: gpio
     id: pa_enable
     name: "Audio Power Amplifier"
-    restore_mode: ALWAYS_OFF
+    restore_mode: ALWAYS_ON
     pin:
       tca9555: tca9555_hub
       number: 8
@@ -449,8 +471,6 @@ select:
 
 micro_wake_word:
   on_wake_word_detected:
-    - switch.turn_on: pa_enable
-    - delay: 100ms
     - voice_assistant.start:
         wake_word: !lambda return wake_word;
 
