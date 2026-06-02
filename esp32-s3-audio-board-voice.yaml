@@ -92,7 +92,7 @@ audio_dac:
     id: es8311_dac
     i2c_id: i2c_bus
     bits_per_sample: 16bit
-    sample_rate: 16000
+    sample_rate: 48000      # ← auf 48kHz angehoben
     use_mclk: true
     force_master: true
     mclk_multiple: 256
@@ -109,15 +109,15 @@ microphone:
     use_apll: true
     mclk_multiple: 256
 
-# ====== Hardware-Speaker (I2S, läuft dauerhaft über Mixer) ======
 speaker:
+  # ====== Hardware-Speaker läuft auf 48kHz ======
   - platform: i2s_audio
     id: i2s_audio_speaker
     i2s_audio_id: i2s_output
     i2s_dout_pin: GPIO16
     dac_type: external
     audio_dac: es8311_dac
-    sample_rate: 16000
+    sample_rate: 48000      # ← auf 48kHz angehoben
     bits_per_sample: 16bit
     channel: stereo
     timeout: never
@@ -133,23 +133,25 @@ speaker:
     num_channels: 2
     source_speakers:
       - id: announcement_mixer_input
-        timeout: never
+        timeout: never      # ← nie stoppen
       - id: media_mixer_input
-        timeout: never
+        timeout: never      # ← nie stoppen
 
-  # ====== Resampler für Announcement-Pipeline ======
+  # ====== Resampler für Announcement: 16kHz → 48kHz ======
   - platform: resampler
     id: announcement_resampler
     output_speaker: announcement_mixer_input
-    sample_rate: 16000
+    sample_rate: 48000      # ← Zielrate des Mixers
     bits_per_sample: 16bit
+    buffer_duration: 500ms
 
-  # ====== Resampler für Media-Pipeline ======
+  # ====== Resampler für Media: beliebig → 48kHz ======
   - platform: resampler
     id: media_resampler
     output_speaker: media_mixer_input
-    sample_rate: 16000
+    sample_rate: 48000      # ← Zielrate des Mixers
     bits_per_sample: 16bit
+    buffer_duration: 500ms
 
 light:
   - platform: esp32_rmt_led_strip
@@ -186,9 +188,11 @@ media_player:
     announcement_pipeline:
       speaker: announcement_resampler
       format: WAV
+      num_channels: 2       # ← Stereo, passend zu 48kHz Stereo vom HA
     media_pipeline:
       speaker: media_resampler
       format: WAV
+      num_channels: 2
     files:
       - id: timer_finished_wave_file
         file: https://github.com/esphome/wake-word-voice-assistants/raw/main/sounds/timer_finished.wav
@@ -392,11 +396,10 @@ script:
             - micro_wake_word.stop
 
 switch:
-  # PA bleibt nach Boot dauerhaft an — kein Schalten mehr nötig
   - platform: gpio
     id: pa_enable
     name: "Audio Power Amplifier"
-    restore_mode: ALWAYS_ON
+    restore_mode: ALWAYS_ON   # ← PA dauerhaft an, kein Schalten
     pin:
       tca9555: tca9555_hub
       number: 8
