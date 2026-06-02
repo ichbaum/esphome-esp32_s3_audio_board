@@ -92,10 +92,8 @@ audio_dac:
     id: es8311_dac
     i2c_id: i2c_bus
     bits_per_sample: 16bit
-    sample_rate: 48000      # ← auf 48kHz angehoben
+    sample_rate: 48000
     use_mclk: true
-    force_master: true
-    mclk_multiple: 256
 
 microphone:
   - platform: i2s_audio
@@ -110,14 +108,13 @@ microphone:
     mclk_multiple: 256
 
 speaker:
-  # ====== Hardware-Speaker läuft auf 48kHz ======
   - platform: i2s_audio
     id: i2s_audio_speaker
     i2s_audio_id: i2s_output
     i2s_dout_pin: GPIO16
     dac_type: external
     audio_dac: es8311_dac
-    sample_rate: 48000      # ← auf 48kHz angehoben
+    sample_rate: 48000
     bits_per_sample: 16bit
     channel: stereo
     timeout: never
@@ -126,30 +123,27 @@ speaker:
     use_apll: true
     mclk_multiple: 256
 
-  # ====== Mixer: fasst Announcement + Media zusammen ======
   - platform: mixer
     id: mixer_speaker
     output_speaker: i2s_audio_speaker
     num_channels: 2
     source_speakers:
       - id: announcement_mixer_input
-        timeout: never      # ← nie stoppen
+        timeout: never
       - id: media_mixer_input
-        timeout: never      # ← nie stoppen
+        timeout: never
 
-  # ====== Resampler für Announcement: 16kHz → 48kHz ======
   - platform: resampler
     id: announcement_resampler
     output_speaker: announcement_mixer_input
-    sample_rate: 48000      # ← Zielrate des Mixers
+    sample_rate: 48000
     bits_per_sample: 16bit
     buffer_duration: 500ms
 
-  # ====== Resampler für Media: beliebig → 48kHz ======
   - platform: resampler
     id: media_resampler
     output_speaker: media_mixer_input
-    sample_rate: 48000      # ← Zielrate des Mixers
+    sample_rate: 48000
     bits_per_sample: 16bit
     buffer_duration: 500ms
 
@@ -188,7 +182,7 @@ media_player:
     announcement_pipeline:
       speaker: announcement_resampler
       format: WAV
-      num_channels: 2       # ← Stereo, passend zu 48kHz Stereo vom HA
+      num_channels: 2
     media_pipeline:
       speaker: media_resampler
       format: WAV
@@ -399,7 +393,7 @@ switch:
   - platform: gpio
     id: pa_enable
     name: "Audio Power Amplifier"
-    restore_mode: ALWAYS_ON   # ← PA dauerhaft an, kein Schalten
+    restore_mode: ALWAYS_ON
     pin:
       tca9555: tca9555_hub
       number: 8
