@@ -94,11 +94,13 @@ audio_dac:
     bits_per_sample: 16bit
     sample_rate: 16000
     use_mclk: true
+    force_master: true
+    mclk_multiple: 256
 
 microphone:
   - platform: i2s_audio
     id: echo_microphone
-    i2s_audio_id: i2s_output
+    i2s_audio_id: i2s_input
     i2s_din_pin: GPIO15
     bits_per_sample: 16bit
     sample_rate: 16000
