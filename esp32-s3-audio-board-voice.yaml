@@ -116,6 +116,7 @@ microphone:
     bits_per_sample: 16bit
     sample_rate: 16000
     adc_type: external
+    adc: es7210_adc 
     i2s_mode: secondary
     use_apll: true
     mclk_multiple: 256
