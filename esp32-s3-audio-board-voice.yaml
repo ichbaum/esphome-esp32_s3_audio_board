@@ -80,6 +80,15 @@ i2s_audio:
       allow_other_uses: true
     i2s_mclk_pin: GPIO12
 
+  - id: i2s_input
+    i2s_lrclk_pin:
+      number: GPIO14
+      allow_other_uses: true
+    i2s_bclk_pin:
+      number: GPIO13
+      allow_other_uses: true
+    i2s_mclk_pin: GPIO12
+
 audio_adc:
   - platform: es7210
     id: es7210_adc
