@@ -1,7 +1,12 @@
 esphome:
   name: esp32-s3-audio-board-voice
   friendly_name: ESP32-S3-Audio-Board Voice
-
+#  on_boot:
+#    priority: 375
+#    then:
+#      - delay: 10s
+#      - switch.turn_on: pa_enable      
+      
 esp32:
   board: esp32-s3-devkitc-1
   cpu_frequency: 240MHz
@@ -11,89 +16,49 @@ esp32:
     type: esp-idf
     version: recommended
     sdkconfig_options:
+      # Setzt die Flash-Chip-Größe im SDK (MUSS 16MB sein)
       CONFIG_ESPTOOLPY_FLASHSIZE: "16MB"
+      # Setzt den Betriebsmodus des Flash-Speichers
+      # 'dio' oder 'qio' sind üblich. 'qio' ist schneller. Probiere beides.
       CONFIG_ESPTOOLPY_FLASHMODE: "qio"
-      CONFIG_ESPTOOLPY_FLASHFREQ: "80m"
-
-      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
-      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
-      CONFIG_ESP32S3_INSTRUCTION_CACHE_32KB: "y"
-
-      # Considerably speeds up mWW at the cost of using more PSRAM.
-      CONFIG_SPIRAM_RODATA: "y"
-      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: "y"
-
-      # BLE options removed - BLE is disabled to save internal RAM
-      # CONFIG_BT_ALLOCATION_FROM_SPIRAM_FIRST: "y"
-      # CONFIG_BT_BLE_DYNAMIC_ENV_MEMORY: "y"
-
-      CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC: "y"
-      CONFIG_MBEDTLS_SSL_PROTO_TLS1_3: "y"  # TLS1.3 support isn't enabled by default in IDF 5.1.5
-
-      # Internal RAM optimization for AFE - reserve memory for DMA allocations
-      CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL: "98304"  # 96KB reserved for DMA and WiFi
-      CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL: "8192"     # Only <8KB stays internal
-
-      # WiFi IRAM optimization - frees ~17KB
-      CONFIG_ESP_WIFI_RX_IRAM_OPT: "n"
-
-      # Note: WiFi buffer settings are managed by ESPHome's WiFi component
-      # With PSRAM guaranteed, it uses high-performance settings with PSRAM allocation
-
-      # Move FreeRTOS to flash
-      CONFIG_FREERTOS_PLACE_FUNCTIONS_INTO_FLASH: "y"
-
-      # Disable BLE to free internal RAM (not currently used)
-      CONFIG_BT_ENABLED: "n"
-
-      # Allow task stacks to be allocated in PSRAM (needed for AFE task)
-      CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY: "y"
+      # Setzt die Flash-Frequenz. 80MHz ist Standard für 16MB S3-Chips.
+      CONFIG_ESPTOOLPY_FLASHFREQ: "80m"    
 
 psram:
   mode: octal
-  speed: 80MHz
-  ignore_not_found: false
+  speed: 80MHz    
 
 logger:
-  level: DEBUG
-  logs:
-    ring_buffer: WARN  # Reduce ring_buffer spam
-    resampler_speaker: WARN  # Reduce resampler spam
-    speaker_mixer: INFO  # Reduce mixer spam
-    ld2410: INFO  # Reduce presence sensor spam
-    sensor: INFO  # Reduce sensor update spam
+    #level: WARN
 
 api:
 
 ota:
   - platform: esphome
-    id: ota_esphome
+    id: ota_esphome  
+    
+captive_portal:  
 
-captive_portal:
-
+# ====== I2C für ES7210 / ES8311 /TCA9555 ======
 i2c:
   id: i2c_bus
   scl: GPIO10
   sda: GPIO11
-  scan: true
-  frequency: 100kHz
-
+  
+# ====== I2S GPIO Expander ======  
 tca9555:
   - id: tca9555_hub
     i2c_id: i2c_bus
     address: 0x20
 
+# ====== I2S Audio-Bus ======
 i2s_audio:
-  - id: i2s_output
-    i2s_lrclk_pin:
-      number: GPIO14
-      allow_other_uses: true
-    i2s_bclk_pin:
-      number: GPIO13
-      allow_other_uses: true
-    i2s_mclk_pin: GPIO12
+  - id: i2s_audio_bus
+    i2s_lrclk_pin: GPIO14
+    i2s_bclk_pin: GPIO13
     i2s_mclk_pin: GPIO12
 
+# ====== Mikrofon (ES7210) ======
 audio_adc:
   - platform: es7210
     id: es7210_adc
@@ -101,46 +66,43 @@ audio_adc:
     bits_per_sample: 16bit
     sample_rate: 16000
 
+# ====== Lautsprecher (ES8311) ======
 audio_dac:
   - platform: es8311
     id: es8311_dac
     i2c_id: i2c_bus
     bits_per_sample: 16bit
-    sample_rate: 16000
-    use_mclk: true
-    force_master: true
-    mclk_multiple: 256
+    sample_rate: 48000    
 
 # ====== Mikrofon über I2S ======
 microphone:
   - platform: i2s_audio
     id: echo_microphone
-    i2s_audio_id: i2s_input
+    i2s_audio_id: i2s_audio_bus
     i2s_din_pin: GPIO15
     bits_per_sample: 16bit
     sample_rate: 16000
     adc_type: external
-    i2s_mode: secondary
-    use_apll: true
-    mclk_multiple: 256
+    #i2s_mode: secondary
+    #pdm: false
+    #channel: stereo
 
 # ====== Lautsprecher über I2S ======
 speaker:
   - platform: i2s_audio
     id: i2s_audio_speaker
-    i2s_audio_id: i2s_output
+    i2s_audio_id: i2s_audio_bus
     i2s_dout_pin: GPIO16
     dac_type: external
     audio_dac: es8311_dac
-    sample_rate: 16000
+    sample_rate: 48000
     bits_per_sample: 16bit
     channel: stereo
     timeout: never
     buffer_duration: 100ms
-    i2s_mode: secondary
-    use_apll: true
-    mclk_multiple: 256
+    
 
+# ====== RGB LED (onboard WS2812, 7 LEDs) ======
 light:
   - platform: esp32_rmt_led_strip
     id: led
@@ -166,6 +128,7 @@ light:
           min_brightness: 50%
           max_brightness: 100%
 
+# ====== Media Player ======
 media_player:
   - platform: speaker
     id: echo_media_player
@@ -175,18 +138,17 @@ media_player:
     volume_max: 0.85
     announcement_pipeline:
       speaker: i2s_audio_speaker
-      format: WAV
+      format: WAV         
     files:
       - id: timer_finished_wave_file
         file: https://github.com/esphome/wake-word-voice-assistants/raw/main/sounds/timer_finished.wav
-
     on_announcement:
       - if:
           condition:
             - microphone.is_capturing:
           then:
             - script.execute: stop_wake_word
-      - switch.turn_on: pa_enable
+      - switch.turn_on: pa_enable       
       - light.turn_on:
           id: led
           blue: 100%
@@ -194,11 +156,11 @@ media_player:
           green: 0%
           brightness: 100%
           effect: none
-
     on_idle:
       - script.execute: start_wake_word
       - script.execute: reset_led
 
+# ====== Voice Assistant ======
 voice_assistant:
   id: va
   micro_wake_word:
@@ -209,16 +171,13 @@ voice_assistant:
   media_player: echo_media_player
   noise_suppression_level: 2
   auto_gain: 31dBFS
-
   on_listening:
-    - switch.turn_on: pa_enable
     - light.turn_on:
         id: led
         blue: 100%
         red: 0%
         green: 0%
         effect: "Slow Pulse"
-
   on_stt_vad_end:
     - light.turn_on:
         id: led
@@ -226,9 +185,8 @@ voice_assistant:
         red: 0%
         green: 0%
         effect: "Fast Pulse"
-
   on_tts_start:
-    - switch.turn_on: pa_enable
+    - switch.turn_on: pa_enable 
     - light.turn_on:
         id: led
         blue: 100%
@@ -236,7 +194,6 @@ voice_assistant:
         green: 0%
         brightness: 100%
         effect: none
-
   on_end:
     - wait_until:
         condition:
@@ -244,7 +201,7 @@ voice_assistant:
         timeout: 0.5s
     - if:
         condition:
-          - lambda: return id(wake_word_engine_location).current_option() == "On device";
+          - lambda: return id(wake_word_engine_location).state == "On device";
         then:
           - wait_until:
               - and:
@@ -253,8 +210,7 @@ voice_assistant:
           - lambda: id(va).set_use_wake_word(false);
           - micro_wake_word.start:
     - script.execute: reset_led
-    - switch.turn_off: pa_enable
-
+    - switch.turn_off: pa_enable 
   on_error:
     - light.turn_on:
         id: led
@@ -265,14 +221,11 @@ voice_assistant:
         effect: none
     - delay: 2s
     - script.execute: reset_led
-
   on_client_connected:
     - delay: 2s
     - script.execute: start_wake_word
-
   on_client_disconnected:
     - script.execute: stop_wake_word
-
   on_timer_finished:
     - script.execute: stop_wake_word
     - wait_until:
@@ -313,12 +266,14 @@ binary_sensor:
                 - switch.turn_off: timer_ringing
               else:
                 - script.execute: start_wake_word
+
+# ====== Skripte ======
 script:
   - id: reset_led
     then:
       - if:
           condition:
-            - lambda: return id(wake_word_engine_location).current_option() == "On device";
+            - lambda: return id(wake_word_engine_location).state == "On device";
             - switch.is_on: use_listen_light
           then:
             - light.turn_on:
@@ -327,10 +282,11 @@ script:
                 green: 89%
                 blue: 71%
                 brightness: 60%
+                effect: none
           else:
             - if:
                 condition:
-                  - lambda: return id(wake_word_engine_location).current_option() != "On device";
+                  - lambda: return id(wake_word_engine_location).state != "On device";
                   - switch.is_on: use_listen_light
                 then:
                   - light.turn_on:
@@ -339,6 +295,7 @@ script:
                       green: 100%
                       blue: 100%
                       brightness: 60%
+                      effect: none
                 else:
                   - light.turn_off: led
 
@@ -349,17 +306,16 @@ script:
             and:
               - not:
                   - voice_assistant.is_running:
-              - lambda: return id(wake_word_engine_location).current_option() == "On device";
+              - lambda: return id(wake_word_engine_location).state == "On device";
           then:
             - lambda: id(va).set_use_wake_word(false);
             - micro_wake_word.start:
-
       - if:
           condition:
             and:
               - not:
                   - voice_assistant.is_running:
-              - lambda: return id(wake_word_engine_location).current_option() == "In Home Assistant";
+              - lambda: return id(wake_word_engine_location).state == "In Home Assistant";
           then:
             - lambda: id(va).set_use_wake_word(true);
             - voice_assistant.start_continuous:
@@ -368,25 +324,32 @@ script:
     then:
       - if:
           condition:
-            lambda: return id(wake_word_engine_location).current_option() == "In Home Assistant";
+            lambda: return id(wake_word_engine_location).state == "In Home Assistant";
           then:
             - lambda: id(va).set_use_wake_word(false);
             - voice_assistant.stop:
-
       - if:
           condition:
-            lambda: return id(wake_word_engine_location).current_option() == "On device";
+            lambda: return id(wake_word_engine_location).state == "On device";
           then:
-            - micro_wake_word.stop
+            - micro_wake_word.stop:
 
-switch:
+# ====== Schalter ======
+switch:   
+#  - platform: gpio
+#    name: "PA_CTRL(?)"
+#    id: pa_ctrl
+#    pin:
+#        tca9555: tca9555_hub
+#        number: 9
   - platform: gpio
-    id: pa_enable
+    id: pa_enable    
     name: "Audio Power Amplifier"
     restore_mode: ALWAYS_OFF
+    #internal: true
     pin:
-      tca9555: tca9555_hub
-      number: 8
+        tca9555: tca9555_hub
+        number: 8 
 
   - platform: template
     name: Use listen light
@@ -405,29 +368,29 @@ switch:
     restore_mode: ALWAYS_OFF
     on_turn_off:
       - lambda: |-
-          id(echo_media_player)
-            ->make_call()
-            .set_command(media_player::MediaPlayerCommand::MEDIA_PLAYER_COMMAND_REPEAT_OFF)
-            .set_announcement(true)
-            .perform();
-          id(echo_media_player)->set_playlist_delay_ms(speaker::AudioPipelineType::ANNOUNCEMENT, 0);
+              id(echo_media_player)
+                ->make_call()
+                .set_command(media_player::MediaPlayerCommand::MEDIA_PLAYER_COMMAND_REPEAT_OFF)
+                .set_announcement(true)
+                .perform();
+              id(echo_media_player)->set_playlist_delay_ms(speaker::AudioPipelineType::ANNOUNCEMENT, 0);
       - media_player.stop:
           announcement: true
-
     on_turn_on:
       - lambda: |-
-          id(echo_media_player)
-            ->make_call()
-            .set_command(media_player::MediaPlayerCommand::MEDIA_PLAYER_COMMAND_REPEAT_ONE)
-            .set_announcement(true)
-            .perform();
-          id(echo_media_player)->set_playlist_delay_ms(speaker::AudioPipelineType::ANNOUNCEMENT, 1000);
+            id(echo_media_player)
+              ->make_call()
+              .set_command(media_player::MediaPlayerCommand::MEDIA_PLAYER_COMMAND_REPEAT_ONE)
+              .set_announcement(true)
+              .perform();
+            id(echo_media_player)->set_playlist_delay_ms(speaker::AudioPipelineType::ANNOUNCEMENT, 1000);
       - media_player.speaker.play_on_device_media_file:
           media_file: timer_finished_wave_file
           announcement: true
       - delay: 15min
       - switch.turn_off: timer_ringing
 
+# ====== Auswahl: Wake Word Engine ======
 select:
   - platform: template
     entity_category: config
@@ -439,34 +402,30 @@ select:
       - In Home Assistant
       - On device
     initial_option: On device
-
     on_value:
       - if:
           condition:
             lambda: return x == "In Home Assistant";
           then:
-            - micro_wake_word.stop
+            - micro_wake_word.stop:
             - delay: 500ms
             - lambda: id(va).set_use_wake_word(true);
-            - voice_assistant.start_continuous
-
+            - voice_assistant.start_continuous:
       - if:
           condition:
             lambda: return x == "On device";
           then:
             - lambda: id(va).set_use_wake_word(false);
-            - voice_assistant.stop
+            - voice_assistant.stop:
             - delay: 500ms
-            - micro_wake_word.start
+            - micro_wake_word.start:
 
+# ====== Wake Word ======
 micro_wake_word:
   on_wake_word_detected:
-    - switch.turn_on: pa_enable
     - voice_assistant.start:
         wake_word: !lambda return wake_word;
-
   vad:
-
   models:
     - model: okay_nabu
     - model: hey_mycroft
